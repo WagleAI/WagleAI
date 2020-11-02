@@ -49,6 +49,7 @@ def yolo_weights_exit(status):
     if status.lower() == 'pass':
         print('**** The w')
 
+
 def yolo_image_file_exit(status):
     if status.lower() == 'pass':
         print('**** The image file loaded well. ****')
@@ -100,4 +101,13 @@ def yolo_process_exit(status):
     else:
         print('!!!! Some errors occurred before the process ends. '
               'The program will be stopped. !!!!')
+        exit(1)
+
+
+def webcam_exit(status):
+    if status.lower() == 'pass':
+        print('**** The Webcams are completely connected. ****')
+    else:
+        print("!!!! There are no webcams connected."
+              "The program will be stopped. !!!!")
         exit(1)
