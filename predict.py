@@ -1,7 +1,10 @@
 import os
 import cv2
 import json
+import time
 import numpy as np
+import threading
+from socket import *
 from tqdm import tqdm
 from testcase import *
 from keras.models import load_model
@@ -14,6 +17,12 @@ def predict_main_(args):
     config_path = args.conf
     input_path = args.input
     output_path = args.output
+
+    HOST = args.host
+    PORT = 8080
+
+    socket_client = socket(AF_INET, SOCK_STREAM)
+    socket_client.connect((HOST, PORT))
 
     yolo_config_file_exit('pass') \
         if os.path.exists(config_path) \
@@ -49,123 +58,141 @@ def predict_main_(args):
     #   Predict bounding boxes 
     ###############################
     if 'webcam' in input_path:  # do detection on the first webcam
-        video_reader = cv2.VideoCapture(0)
+        tuples = (config['train']['saved_weights_name'], (net_h, net_w),
+                  config['model']['anchors'], (obj_thresh, nms_thresh))
 
-        yolo_webcam_exit('pass') \
-            if video_reader.isOpened() \
-            else yolo_webcam_exit('fail')
+        webcam_num = 0
+        for file in os.listdir("/dev"):
+            if file.startswith("video"):
+                webcam_num += 1
 
-        # the main loop
-        batch_size = 1
-        images = []
-        while True:
-            ret_val, image = video_reader.read()
-            if ret_val:
-                images += [image]
-
-            if (len(images) == batch_size) or \
-                    (ret_val is False and len(images) > 0):
-                batch_boxes = get_yolo_boxes(infer_model, images, net_h, net_w,
-                                             config['model']['anchors'],
-                                             obj_thresh, nms_thresh)
-
-                for i in range(len(images)):
-                    draw_boxes(images[i], batch_boxes[i],
-                               config['model']['labels'], obj_thresh)
-
-                    person, use_boxes = count_person(batch_boxes[i],
-                                                     config['model']['labels'],
-                                                     obj_thresh)
-                    average_density = density_estimator(person, use_boxes)
-                    show_density(image[i], average_density)
-
-                    cv2.imshow('video with bboxes', images[i])
-                images = []
-            if cv2.waitKey(1) == 27: 
-                break  # esc to quit
-        cv2.destroyAllWindows()
+        if webcam_num:
+             yolo_process_exit('pass')
+        else:
+            yolo_process_exit('fail')
 
         try:
             yolo_process_exit('pass')
         except RuntimeError as e:
             yolo_process_exit('fail')
 
-    elif input_path[-4:] == '.mp4':  # do detection on a video
+        batch_size = 1
+        for i in range(webcam_num):
+            globals()['images_{}'.format(i)] = []
+
+        while True:
+            for i in range(webcam_num):
+                globals()['video_reader_{}'.format(i)] = cv2.VideoCapture(i)
+                globals()['ret_{}'.format(i)], \
+                globals()['frame_{}'.format(i)] = globals()['video_reader_{}'.format(i)].read()
+
+                if (globals()['ret_{}'.format(i)]):
+                    string = 'Cam ' + str(i)
+                    globals()['images_{}'.format(i)] += [globals()['frame_{}'.format(i)]]
+
+                    if (len(globals()['images_{}'.format(i)]) == batch_size) or \
+                            (globals()['ret_{}'.format(i)] is False and \
+                                    len(globals()['images_{}'.format(i)])):
+                        globals()['batch_boxes_{}'.format(i)] = get_yolo_boxes(infer_model,
+                                                                               globals()['images_{}'.format(i)],
+                                                                               net_h, net_w, config['model']['anchors'],
+                                                                               obj_thresh, nms_thresh)
+                        draw_boxes(globals()['images_{}'.format(i)][0], globals()['batch_boxes_{}'.format(i)][0],
+                                    config['model']['labels'], obj_thresh)
+                        globals()['person_{}'.format(i)], globals()['use_boxes_{}'.format(i)] = count_person(globals()['batch_boxes_{}'.format(i)][0],
+                                                                                                             config['model']['labels'],
+                                                                                                             obj_thresh)
+                        globals()['average_density_{}'.format(i)] = density_estimator(globals()['person_{}'.format(i)], globals()['use_boxes_{}'.format(i)])
+                        globals()['images_{}'.format(i)] = []
+
+                    print(globals()['average_density_{}'.format(i)])
+                    message = str(globals()['person_{}'.format(i)])
+                    socket_client.send(message.encode())
+                    message = str(globals()['average_density_{}'.format(i)])
+                    socket_client.send(message.encode())
+
+
+                globals()['video_reader_{}'.format(i)].release()
+            i = 0
+            time.sleep(5)
+            cv2.destroyAllWindows()
+
+    elif input_path[-4:] == '.txt':  # do detection on a video
         yolo_video_file_exit('pass') \
             if os.path.isfile(input_path) \
             else yolo_video_file_exit('fail')
 
-        video_out = output_path + input_path.split('/')[-1]
-        video_reader = cv2.VideoCapture(input_path)
+        file = open(input_path, 'r')
+        line_number = 0
 
-        nb_frames = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_h = int(video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        frame_w = int(video_reader.get(cv2.CAP_PROP_FRAME_WIDTH))
+        while True:
+            line = file.readline().rstrip('\n')
+            if not line : break
+            globals()['video_out_{}'.format(line_number)] = output_path + line.split('/')[-1]
+            globals()['video_reader_{}'.format(line_number)] = cv2.VideoCapture(line)
+            globals()['nb_frames_{}'.format(line_number)] = int(globals()['video_reader_{}'.format(line_number)].get(cv2.CAP_PROP_FRAME_COUNT))
+            globals()['nb_frames_h_{}'.format(line_number)] = int(globals()['video_reader_{}'.format(line_number)].get(cv2.CAP_PROP_FRAME_HEIGHT))
+            globals()['nb_frames_w_{}'.format(line_number)] = int(globals()['video_reader_{}'.format(line_number)].get(cv2.CAP_PROP_FRAME_WIDTH))
 
-        video_writer = cv2.VideoWriter(video_out,
-                                       cv2.VideoWriter_fourcc(*'MPEG'),
-                                       50.0, (frame_w, frame_h))
-        # the main loop
+            globals()['video_writer_{}'.format(line_number)] = cv2.VideoWriter(globals()['video_out_{}'.format(line_number)],
+                                                                               cv2.VideoWriter_fourcc(*'MPEG'),
+                                                                               50.0,
+                                                                               (globals()['nb_frames_w_{}'.format(line_number)],
+                                                                                globals()['nb_frames_h_{}'.format(line_number)]))
+            globals()['images_{}'.format(line_number)] = []
+            line_number += 1
+
         batch_size = 1
-        images = []
-        start_point = 0
-        show_window = True
-        save_window = True
-        for i in tqdm(range(nb_frames)):
-            _, image = video_reader.read()
 
-            if (float(i+1)/nb_frames) > start_point/100.:
-                images += [image]
+        while True:
+            for i in range(line_number):
+                globals()['ret_{}'.format(i)], globals()['frame_{}'.format(i)] = globals()['video_reader_{}'.format(i)].read()
 
-                if (i % batch_size == 0) or \
-                        (i == (nb_frames-1) and len(images) > 0):
-                    # predict the bounding boxes
-                    batch_boxes = get_yolo_boxes(infer_model, images, net_h,
-                                                 net_w,
-                                                 config['model']['anchors'],
-                                                 obj_thresh, nms_thresh)
+                if globals()['ret_{}'.format(i)]:
+                    globals()['images_{}'.format(i)] += [globals()['frame_{}'.format(i)]]
 
-                    for j in range(len(images)):
-                        # draw bounding boxes on the image using labels
+                    if (len(globals()['images_{}'.format(i)]) == batch_size) or \
+                            (globals()['ret_{}'.format(i)] is False and
+                             len(globals()['images_{}'.format(i)])):
+                        globals()['batch_boxes_{}'.format(i)] = get_yolo_boxes(
+                            infer_model,
+                            globals()['images_{}'.format(i)],
+                            net_h, net_w, config['model']['anchors'],
+                            obj_thresh, nms_thresh)
 
-                        if show_window:
-                            draw_boxes(images[j], batch_boxes[j],
+                        for j in range(len(globals()['images_{}'.format(i)])):
+                            draw_boxes(globals()['images_{}'.format(i)][j],
+                                       globals()['batch_boxes_{}'.format(i)][j],
                                        config['model']['labels'], obj_thresh)
 
-                        person, use_boxes = count_person(batch_boxes[j],
-                                                         config['model'][
-                                                             'labels'],
-                                                         obj_thresh)
-                        average_density = density_estimator(person, use_boxes)
-                        show_density(images[j], person, average_density)
+                            globals()['person_{}'.format(i)], \
+                            globals()['use_boxes_{}'.format(i)] = count_person(
+                                globals()['batch_boxes_{}'.format(i)][j],
+                                config['model']['labels'],
+                                obj_thresh)
 
-                        # show the video with detection bounding boxes          
-                        if show_window:
-                            cv2.imshow('video with bboxes', images[j])
+                            globals()['average_density_{}'.format(i)] = \
+                                density_estimator(
+                                globals()['person_{}'.format(i)],
+                                globals()['use_boxes_{}'.format(i)])
+                            print(globals()['average_density_{}'.format(i)])
 
-                        # write result to the output video
-                        if save_window:
-                            video_writer.write(images[j])
-                    images = []
-                if show_window and cv2.waitKey(1) == 27:
-                    break  # esc to quit
-
-        if show_window:
+                            string = 'video ' + str(i)
+                            print(string)
+                            cv2.imshow(string, globals()['images_{}'.format(i)][j])
+                        globals()['images_{}'.format(i)] = []
+            time.sleep(5)
             cv2.destroyAllWindows()
 
+        globals()['video_reader_{}'.format(i)].release()
         yolo_release_exit('pass') \
-            if not video_reader.release() \
-            else yolo_release_exit('fail')
-
-        yolo_release_exit('pass') \
-            if not video_writer.release() \
+            if not globals()['video_writer_{}'.format(i)].release() \
             else yolo_release_exit('fail')
 
         try:
             yolo_process_exit('pass')
         except RuntimeError as e:
             yolo_process_exit('fail')
-
 
     else:  # do detection on an image or a set of images
         image_paths = []
@@ -173,7 +200,7 @@ def predict_main_(args):
             if os.path.isfile(input_path) \
             else yolo_image_file_exit('fail')
 
-        if os.path.isdir(input_path): 
+        if os.path.isdir(input_path):
             for inp_file in os.listdir(input_path):
                 image_paths += [input_path + inp_file]
         else:
@@ -207,7 +234,7 @@ def predict_main_(args):
 
             cv2.imshow('video with bboxes', image)
             cv2.waitKey(3000)
-     
+
             # write the image with bounding boxes to file
             yolo_save_exit('pass') \
                 if cv2.imwrite(output_path + image_path.split('/')[-1],
@@ -231,3 +258,4 @@ def predict_main_(args):
     args = argparser.parse_args()
     _main_(args)
     """
+
