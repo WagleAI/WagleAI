@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.naver.maps.map.MapView
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:map="http://schemas.android.com/apk/res-auto"
+xmlns:tools="http://schemas.android.com/tools"
+android:id="@+id/map_view"
+android:layout_width="match_parent"
+android:layout_height="match_parent" >
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="  밀집도를 확인하고 싶은 곳을 눌러주세요" />
+</com.naver.maps.map.MapView>
