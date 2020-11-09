@@ -124,6 +124,7 @@ def get_human_image_name(xml_root):
 def remove_images(data_path):
     folder_list = os.listdir(data_path)
     folder_list.sort()
+    print(folder_list)
 
     for ped_fol in folder_list:
         bbox_data_path = data_path + "/" + ped_fol

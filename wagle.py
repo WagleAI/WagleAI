@@ -17,6 +17,7 @@ class WagleDensityYolo():
         testcase.yolo_argument_exit('fail') if args.mode is None \
             else testcase.yolo_argument_exit('pass')
 
+        #
         utils.multi_gpu_model.gpu_initialize()
         self.mode_select(args)
 
@@ -31,6 +32,8 @@ class WagleDensityYolo():
                                help='number of anchors to use')
         argparser.add_argument('-c', '--conf',
                                help='path to configuration file')
+        argparser.add_argument('--host',
+                               help='IP address that means server')
         argparser.add_argument(
             '-i',
             '--input',
