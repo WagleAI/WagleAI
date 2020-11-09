@@ -21,6 +21,7 @@ def predict_main_(args):
     HOST = args.host
     PORT = 8080
 
+
     socket_client = socket(AF_INET, SOCK_STREAM)
     socket_client.connect((HOST, PORT))
 
@@ -82,11 +83,11 @@ def predict_main_(args):
 
         while True:
             for i in range(webcam_num):
-                globals()['video_reader_{}'.format(i)] = cv2.VideoCapture(i)
+                globals()['video_{}'.format(i)] = cv2.VideoCapture(i)
                 globals()['ret_{}'.format(i)], \
-                globals()['frame_{}'.format(i)] = globals()['video_reader_{}'.format(i)].read()
+                globals()['frame_{}'.format(i)] = globals()['video_{}'.format(i)].read()
 
-                if (globals()['ret_{}'.format(i)]):
+                if globals()['ret_{}'.format(i)]:
                     string = 'Cam ' + str(i)
                     globals()['images_{}'.format(i)] += [globals()['frame_{}'.format(i)]]
 
@@ -105,14 +106,13 @@ def predict_main_(args):
                         globals()['average_density_{}'.format(i)] = density_estimator(globals()['person_{}'.format(i)], globals()['use_boxes_{}'.format(i)])
                         globals()['images_{}'.format(i)] = []
 
-                    print(globals()['average_density_{}'.format(i)])
-                    message = str(globals()['person_{}'.format(i)])
-                    socket_client.send(message.encode())
-                    message = str(globals()['average_density_{}'.format(i)])
+                    #print(globals()['average_density_{}'.format(i)])
+
+                    message = 'video_' + str(i) + '/' + str(globals()['person_{}'.format(i)]) + '/' + str(globals()['average_density_{}'.format(i)])
+                    print(message)
                     socket_client.send(message.encode())
 
-
-                globals()['video_reader_{}'.format(i)].release()
+                globals()['video_{}'.format(i)].release()
             i = 0
             time.sleep(5)
             cv2.destroyAllWindows()
@@ -177,9 +177,16 @@ def predict_main_(args):
                                 globals()['use_boxes_{}'.format(i)])
                             print(globals()['average_density_{}'.format(i)])
 
-                            string = 'video ' + str(i)
+                            string = 'video_' + str(i)
                             print(string)
-                            cv2.imshow(string, globals()['images_{}'.format(i)][j])
+                            #message = string
+                            #socket_client.send(message.encode())
+                            message = string + '/' + str(globals()['person_{}'.format(i)]) + '/' + str(globals()['average_density_{}'.format(i)])
+                            socket_client.send(message.encode())
+
+                            if i == 0:
+                                cv2.imshow(string, globals()['images_{}'.format(i)][j])
+                                cv2.waitKey(1)
                         globals()['images_{}'.format(i)] = []
             time.sleep(5)
             cv2.destroyAllWindows()
@@ -258,4 +265,3 @@ def predict_main_(args):
     args = argparser.parse_args()
     _main_(args)
     """
-
