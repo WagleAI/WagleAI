@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ### 2. predict 실행
 Detection 하기 위한 이미지나 동영상 파일을 프로젝트의 하위 폴더에 위치시킨 뒤 다음 명령어를 입력해 주세요.
 ```bash
-python wagle.py --mode predict -c json파일의_경로 -i 이미지/동영상_파일의_경로
+python wagle.py --mode predict -c json파일의_경로 -i 이미지/동영상_파일의_경로 --host 로그서버의 IP주소
 ```
 탐지 결과는 ```output```폴더에 저장됩니다.
 
