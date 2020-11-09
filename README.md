@@ -21,10 +21,13 @@ pip install -r requirements.txt
 ### 1. Pre-trained model 다운로드
 사람을 단일 클래스로 학습한 모델 파일은 다음 링크에서 받으실 수 있습니다.  
 <a>https://drive.google.com/file/d/11d08K8r7hgqcTD-jMRbGl7lao00OlzM7/view?usp=sharing</a>  
+
 ### 2. predict 실행
-Detection 하기 위한 이미지나 동영상 파일을 프로젝트의 하위 폴더에 위치시킨 뒤 다음 명령어를 입력해 주세요.
+Detection 하기 위한 이미지나 동영상 파일을 프로젝트의 하위 폴더에 위치시킨 뒤 다음 명령어를 입력해 주세요.  
+웹캠으로 탐지할 경우 -i 명령어에 webcam을, 동영상 파일로 탐지할 경우 저장되어있는 동영상들의 경로를 표시한 txt 파일의 경로를 입력합니다.  
+여러 동영상들을 재생할 경우, 저장된 동영상의 개수에 맞게 txt 파일이 작성되었는지 확인해주세요.
 ```bash
-python wagle.py --mode predict -c json파일의_경로 -i 이미지/동영상_파일의_경로 --host 로그서버의 IP주소
+python wagle.py --mode predict -c json파일의_경로 -i webcam/동영상_파일의_경로.txt -o 결과가 저장될 폴더 경로 --host 로그서버의 IP주소
 ```
 탐지 결과는 ```output```폴더에 저장됩니다.
 
@@ -121,3 +124,9 @@ python wagle.py --model train -c json파일의_경로
 valid 셋에 대해 loss가 3epoch동안 줄어들지 않으면 early stop합니다.
 
 
+### 5. 로그 서버 동작시키기
+```bash
+python wagle_server.py
+```
+서버 역할을 할 컴퓨터에 해당 명령어를 입력하면 wait 상태가 되며 client의 통신을 기다립니다.  
+client 서버에서 동영상 또는 웹캠의 수신이 시작되면, json 형태의 로그가 저장되어 해당 폴더에 생성되게 됩니다.
